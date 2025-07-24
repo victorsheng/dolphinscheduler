@@ -1,0 +1,167 @@
+graph TD
+    %% DAG内部依赖判断流程
+    A[开始依赖判断] --> B{任务类型判断}
+    
+    %% DAG内部依赖
+    B -->|DAG内部任务| C[WorkflowExecutionGraph<br/>isTriggerConditionMet]
+    C --> D{任务状态检查}
+    D -->|Active或InActive| E[返回 false<br/>不可触发]
+    D -->|未执行| F[获取前置任务列表<br/>getPredecessors]
+    F --> G{前置任务状态检查}
+    G --> H[遍历所有前置任务]
+    H --> I{前置任务是否完成?}
+    I -->|未完成| J[返回 false<br/>等待前置任务]
+    I -->|已完成| K{前置任务是否成功?}
+    K -->|失败/暂停/终止| L[返回 false<br/>前置任务异常]
+    K -->|成功| M{是否还有其他前置任务?}
+    M -->|是| H
+    M -->|否| N[返回 true<br/>可以触发]
+    
+    %% 跨工作流依赖
+    B -->|Dependent任务| O[DependentLogicTask<br/>依赖任务处理]
+    O --> P[DependentTaskTracker<br/>依赖跟踪器]
+    P --> Q[计算依赖日期<br/>calculateDependentDate]
+    Q --> R{使用调度时间?}
+    R -->|是| S[使用 scheduleTime]
+    R -->|否| T[使用当前时间]
+    S --> U[初始化依赖任务列表<br/>initializeDependentTaskList]
+    T --> U
+    
+    U --> V[遍历依赖项列表]
+    V --> W{是否自依赖?}
+    W -->|是| X{是否首次执行?}
+    X -->|是| Y[返回 SUCCESS<br/>自依赖首次默认成功]
+    X -->|否| Z[正常依赖判断]
+    W -->|否| Z
+    
+    Z --> AA[DependentExecute<br/>依赖执行器]
+    AA --> BB[计算时间区间<br/>getDateIntervalList]
+    BB --> CC{依赖类型判断}
+    
+    %% 依赖整个工作流
+    CC -->|DEPENDENT_WORKFLOW_CODE| DD[dependResultByWorkflowInstance]
+    DD --> EE{工作流是否完成?}
+    EE -->|否| FF[返回 WAITING]
+    EE -->|是| GG{工作流是否成功?}
+    GG -->|是| HH[添加变量池<br/>返回 SUCCESS]
+    GG -->|否| II[返回 FAILED]
+    
+    %% 依赖所有任务
+    CC -->|DEPENDENT_ALL_TASK_CODE| JJ[dependResultByAllTaskOfWorkflowInstance]
+    JJ --> KK{工作流是否完成?}
+    KK -->|否| LL[返回 WAITING]
+    KK -->|是| MM{工作流是否成功?}
+    MM -->|否| NN[返回 FAILED]
+    MM -->|是| OO[获取所有任务定义]
+    OO --> PP[查询任务实例列表]
+    PP --> QQ[遍历所有任务]
+    QQ --> RR{任务是否存在?}
+    RR -->|否| SS[返回 FAILED<br/>任务未执行]
+    RR -->|是| TT{任务是否成功?}
+    TT -->|否| UU[返回 FAILED<br/>任务执行失败]
+    TT -->|是| VV{还有其他任务?}
+    VV -->|是| QQ
+    VV -->|否| WW[返回 SUCCESS]
+    
+    %% 依赖特定任务
+    CC -->|具体任务代码| XX[dependResultBySingleTaskInstance]
+    XX --> YY[查询任务实例]
+    YY --> ZZ{任务实例是否存在?}
+    ZZ -->|否| AAA[查询任务定义]
+    AAA --> BBB{任务定义是否存在?}
+    BBB -->|否| CCC[返回 FAILED<br/>任务定义不存在]
+    BBB -->|是| DDD{任务是否被禁用?}
+    DDD -->|是| EEE[返回 SUCCESS<br/>禁用任务默认成功]
+    DDD -->|否| FFF{工作流是否完成?}
+    FFF -->|否| GGG[返回 WAITING]
+    FFF -->|是| HHH[返回 FAILED]
+    
+    ZZ -->|是| III{是否流式任务?}
+    III -->|是| JJJ[返回 SUCCESS<br/>流式任务默认成功]
+    III -->|否| KKK[getDependResultOfTask]
+    KKK --> LLL{任务是否完成?}
+    LLL -->|否| MMM[返回 WAITING]
+    LLL -->|是| NNN{任务是否成功?}
+    NNN -->|是| OOO[返回 SUCCESS]
+    NNN -->|否| PPP{工作流运行中且可重试?}
+    PPP -->|是| QQQ[返回 WAITING<br/>等待重试]
+    PPP -->|否| RRR[返回 FAILED]
+    
+    %% 依赖关系计算
+    Y --> SSS[收集所有依赖结果]
+    HH --> SSS
+    II --> SSS
+    FF --> SSS
+    WW --> SSS
+    NN --> SSS
+    LL --> SSS
+    EEE --> SSS
+    GGG --> SSS
+    HHH --> SSS
+    CCC --> SSS
+    JJJ --> SSS
+    OOO --> SSS
+    RRR --> SSS
+    QQQ --> SSS
+    MMM --> SSS
+    
+    SSS --> TTT[DependentUtils.getDependResultForRelation]
+    TTT --> UUU{依赖关系类型}
+    
+    %% AND关系
+    UUU -->|AND| VVV{是否包含FAILED?}
+    VVV -->|是| WWW[返回 FAILED]
+    VVV -->|否| XXX{是否包含WAITING?}
+    XXX -->|是| YYY[返回 WAITING]
+    XXX -->|否| ZZZ[返回 SUCCESS]
+    
+    %% OR关系
+    UUU -->|OR| AAAA{是否包含SUCCESS?}
+    AAAA -->|是| BBBB[返回 SUCCESS]
+    AAAA -->|否| CCCC{是否包含WAITING?}
+    CCCC -->|是| DDDD[返回 WAITING]
+    CCCC -->|否| EEEE[返回 FAILED]
+    
+    %% 最终结果处理
+    WWW --> FFFF[依赖判断完成]
+    YYY --> FFFF
+    ZZZ --> FFFF
+    BBBB --> FFFF
+    DDDD --> FFFF
+    EEEE --> FFFF
+    E --> FFFF
+    J --> FFFF
+    L --> FFFF
+    N --> FFFF
+    
+    %% 后续流程调整
+    FFFF --> GGGG{是否需要调整后续流程?}
+    GGGG -->|是| HHHH[SuccessorFlowAdjuster<br/>adjustSuccessorFlow]
+    GGGG -->|否| IIII[触发后续任务]
+    
+    HHHH --> JJJJ{任务类型判断}
+    JJJJ -->|Condition任务| KKKK[adjustConditionTaskSuccessorFlow<br/>根据条件结果跳过分支]
+    JJJJ -->|Switch任务| LLLL[adjustSwitchTaskSuccessorFlow<br/>根据switch结果跳过分支]
+    JJJJ -->|跳过任务| MMMM[标记后续任务跳过<br/>如果所有前置都跳过]
+    JJJJ -->|普通任务| IIII
+    
+    KKKK --> IIII
+    LLLL --> IIII
+    MMMM --> IIII
+    
+    IIII --> NNNN[结束]
+    
+    %% 样式定义
+    classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef process fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef decision fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef success fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef failed fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef waiting fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    
+    class A,NNNN startEnd
+    class C,O,P,AA,DD,JJ,XX,SSS,TTT,HHHH process
+    class B,D,G,I,K,M,R,W,X,CC,EE,GG,KK,MM,RR,TT,VV,ZZ,BBB,DDD,FFF,III,LLL,NNN,PPP,UUU,VVV,XXX,AAAA,CCCC,GGGG,JJJJ decision
+    class N,Y,HH,WW,EEE,JJJ,OOO,ZZZ,BBBB success
+    class E,J,L,II,NN,SS,UU,CCC,RRR,WWW,EEEE failed
+    class FF,LL,GGG,MMM,QQQ,YYY,DDDD waiting
