@@ -1,0 +1,126 @@
+graph TB
+    %% Master Server 主体
+    subgraph MasterServer["🏢 Master Server"]
+        %% 命令处理层
+        subgraph CommandLayer["📋 命令处理层"]
+            CE[CommandEngine<br/>命令引擎]
+            CF[ICommandFetcher<br/>命令获取器]
+            CH[CommandHandlers<br/>命令处理器集合]
+            CE --> CF
+            CE --> CH
+        end
+        
+        %% 工作流引擎层
+        subgraph WorkflowLayer["⚙️ 工作流引擎层"]
+            WE[WorkflowEngine<br/>工作流引擎]
+            WRF[WorkflowExecutionRunnableFactory<br/>工作流运行器工厂]
+            WR[WorkflowExecutionRunnable<br/>工作流运行器]
+            WG[IWorkflowExecutionGraph<br/>DAG执行图]
+            WE --> WRF
+            WRF --> WR
+            WR --> WG
+        end
+        
+        %% 事件驱动层
+        subgraph EventLayer["🔄 事件驱动层"]
+            WEBC[WorkflowEventBusCoordinator<br/>事件总线协调器]
+            WEBFW[WorkflowEventBusFireWorker<br/>事件处理工作者]
+            WEB[WorkflowEventBus<br/>工作流事件总线]
+            LEH[LifecycleEventHandlers<br/>生命周期事件处理器]
+            WEBC --> WEBFW
+            WEBFW --> WEB
+            WEBFW --> LEH
+        end
+        
+        %% 任务调度层
+        subgraph TaskLayer["📤 任务调度层"]
+            WGDC[WorkerGroupDispatcherCoordinator<br/>Worker组调度协调器]
+            WGD[WorkerGroupDispatcher<br/>Worker组调度器]
+            PDQ[PriorityDelayQueue<br/>优先级延迟队列]
+            TEC[TaskExecutorClient<br/>任务执行客户端]
+            WGDC --> WGD
+            WGD --> PDQ
+            WGD --> TEC
+        end
+        
+        %% 状态机层
+        subgraph StateMachineLayer["🔄 状态机层"]
+            WSA[WorkflowStateActions<br/>工作流状态动作]
+            TSA[TaskStateActions<br/>任务状态动作]
+            SM[StateMachine<br/>状态机]
+            WSA --> SM
+            TSA --> SM
+        end
+        
+        %% 协调器层
+        subgraph CoordinatorLayer["🎯 协调器层"]
+            MC[MasterCoordinator<br/>Master协调器]
+            TGC[TaskGroupCoordinator<br/>任务组协调器]
+            MC --> TGC
+        end
+        
+        %% 存储层
+        subgraph RepositoryLayer["💾 存储层"]
+            WCR[WorkflowCacheRepository<br/>工作流缓存仓库]
+            WR_REPO[WorkflowRepository<br/>工作流仓库]
+        end
+    end
+    
+    %% 外部系统
+    subgraph ExternalSystems["🌐 外部系统"]
+        DQ[DistributedQuartz<br/>分布式定时调度器]
+        DB[(Database<br/>数据库)]
+        ZK[ZooKeeper<br/>注册中心]
+        WORKER[Worker Nodes<br/>工作节点集群]
+    end
+    
+    %% 连接关系
+    DQ -->|定时触发| DB
+    CE -->|扫描命令| DB
+    CF -->|查询命令| DB
+    
+    CommandLayer --> WorkflowLayer
+    WorkflowLayer --> EventLayer
+    EventLayer --> TaskLayer
+    EventLayer --> StateMachineLayer
+    TaskLayer --> WORKER
+    
+    MC -->|HA机制| ZK
+    TEC -->|RPC调用| WORKER
+    
+    WCR --> DB
+    WR_REPO --> DB
+    
+    %% 内部连接
+    CE -.->|创建| WRF
+    WR -.->|注册| WEBC
+    WEBFW -.->|处理事件| LEH
+    LEH -.->|状态转换| WSA
+    LEH -.->|状态转换| TSA
+    WSA -.->|触发任务| TaskLayer
+    TSA -.->|分发任务| WGDC
+    
+    %% 反馈循环
+    WORKER -.->|状态反馈| LEH
+    LEH -.->|拓扑推进| WG
+    
+    %% 样式定义
+    classDef masterServer fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+    classDef commandLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef workflowLayer fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef eventLayer fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef taskLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef stateLayer fill:#f1f8e9,stroke:#689f38,stroke-width:2px
+    classDef coordinatorLayer fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    classDef repositoryLayer fill:#e8eaf6,stroke:#303f9f,stroke-width:2px
+    classDef external fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    
+    class MasterServer masterServer
+    class CommandLayer commandLayer
+    class WorkflowLayer workflowLayer
+    class EventLayer eventLayer
+    class TaskLayer taskLayer
+    class StateMachineLayer stateLayer
+    class CoordinatorLayer coordinatorLayer
+    class RepositoryLayer repositoryLayer
+    class ExternalSystems external

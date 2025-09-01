@@ -1,0 +1,108 @@
+graph TD
+    %% 定时触发阶段
+    A[DistributedQuartz 定时调度器] -->|定时触发| B[向 t_ds_command 表插入 Command]
+    B --> C[Command 记录<br/>commandType: SCHEDULE<br/>processDefinitionCode<br/>executorId<br/>scheduleTime]
+    
+    %% 命令扫描与处理阶段
+    C --> D[CommandEngine 启动扫描循环]
+    D --> E{检查系统负载}
+    E -->|过载| F[等待 1s]
+    F --> D
+    E -->|正常| G[IdSlotBasedCommandFetcher<br/>获取命令列表]
+    G --> H{是否有命令}
+    H -->|无命令| F
+    H -->|有命令| I[并行处理命令<br/>CompletableFuture]
+    
+    %% 工作流实例创建阶段
+    I --> J[WorkflowExecutionRunnableFactory<br/>创建工作流运行器]
+    J --> K[WorkflowExecutionRunnable<br/>workflowExecuteContext<br/>workflowInstance<br/>workflowExecutionGraph<br/>workflowEventBus]
+    
+    %% 工作流注册与启动阶段
+    K --> L[workflowRepository.put<br/>注册到仓库]
+    L --> M[workflowEventBusCoordinator<br/>注册事件总线]
+    M --> N[发布 WorkflowStartLifecycleEvent]
+    
+    %% 事件处理与状态转换阶段
+    N --> O[WorkflowEventBusFireWorker<br/>处理事件]
+    O --> P[WorkflowStartLifecycleEventHandler<br/>处理启动事件]
+    P --> Q[WorkflowStateAction.startEventAction<br/>状态转换: SUBMITTED → RUNNING_EXECUTION]
+    
+    %% DAG解析与任务识别阶段
+    Q --> R[获取 WorkflowExecutionGraph<br/>DAG 执行图]
+    R --> S[解析 DAG 拓扑结构]
+    S --> T[识别无前置依赖的任务<br/>isTriggerConditionMet]
+    T --> U{是否有就绪任务}
+    U -->|无| V[发布工作流完成事件]
+    U -->|有| W[标记任务为活跃状态<br/>markTaskExecutionRunnableActive]
+    
+    %% 任务启动事件发布
+    W --> X[发布 TaskStartLifecycleEvent]
+    X --> Y[TaskStartLifecycleEventHandler<br/>处理任务启动事件]
+    Y --> Z[TaskStateAction.startEventAction<br/>状态转换: SUBMITTED_SUCCESS → DISPATCH]
+    
+    %% 任务分发准备阶段
+    Z --> AA[发布 TaskDispatchLifecycleEvent]
+    AA --> BB[TaskDispatchLifecycleEventHandler<br/>处理分发事件]
+    BB --> CC[TaskStateAction.dispatchEventAction]
+    
+    %% 任务分发执行阶段
+    CC --> DD[WorkerGroupDispatcherCoordinator<br/>协调任务分发]
+    DD --> EE[根据 workerGroup 获取<br/>WorkerGroupDispatcher]
+    EE --> FF[将任务加入<br/>PriorityDelayQueue 延迟队列]
+    
+    %% Worker选择与任务提交阶段
+    FF --> GG[延迟队列到期<br/>任务出队]
+    GG --> HH[TaskExecutorClient<br/>选择合适的 Worker]
+    HH --> II[通过 RPC 调用<br/>向 Worker 分发任务]
+    II --> JJ[Worker 节点<br/>executeTask 执行任务]
+    
+    %% 任务执行状态反馈阶段
+    JJ --> KK[TaskInstance 状态更新<br/>DISPATCH → RUNNING_EXECUTION → SUCCESS/FAILURE]
+    KK --> LL[TaskExecutorEventListener<br/>监听任务完成事件]
+    LL --> MM[发布 WorkflowTopologyLogicalTransitionWithTaskFinishLifecycleEvent]
+    
+    %% 工作流拓扑推进阶段
+    MM --> NN[WorkflowTopologyLogicalTransitionWithTaskFinishLifecycleEventHandler]
+    NN --> OO[workflowStateAction.topologyLogicalTransitionEventAction]
+    OO --> PP{检查是否为 DAG 终点}
+    PP -->|是| QQ[发布工作流完成事件<br/>WorkflowFinishedEvent]
+    PP -->|否| RR[SuccessorFlowAdjuster<br/>调整后续流程]
+    RR --> SS[获取后续任务列表<br/>getSuccessors]
+    SS --> T
+    
+    %% 工作流完成阶段
+    QQ --> TT[工作流状态转换<br/>SUCCESS/FAILURE]
+    TT --> UU[发布 WorkflowFinalizeLifecycleEvent]
+    UU --> VV[WorkflowFinalizeLifecycleEventHandler<br/>清理资源]
+    VV --> WW[从 workflowRepository 移除]
+    WW --> XX[从事件总线注销]
+    XX --> YY[工作流执行完成]
+    
+    %% 容错处理分支
+    II -->|分发失败| ZZ[任务重新分发]
+    ZZ --> HH
+    JJ -->|Worker 宕机| AAA[Worker 容错处理]
+    AAA --> HH
+    
+    %% 并发控制
+    I --> BBB[命令处理线程池<br/>并发执行]
+    O --> CCC[事件处理 Worker<br/>并发处理]
+    
+    %% 负载保护
+    E --> DDD[MasterServerLoadProtection<br/>系统负载监控]
+    
+    %% 高可用机制
+    D --> EEE[MasterCoordinator<br/>基于 ZooKeeper 的 HA]
+    
+    %% 样式定义
+    classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef process fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef decision fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef event fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef storage fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    
+    class A,YY startEnd
+    class D,J,L,R,DD,HH,JJ,VV process
+    class E,H,U,PP decision
+    class N,X,AA,MM,QQ,UU event
+    class B,C,K,FF,KK storage

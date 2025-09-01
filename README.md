@@ -1,78 +1,134 @@
-# Apache Dolphinscheduler
+# DolphinScheduler Master任务派发流程源码分析
 
-[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
-![codecov](https://codecov.io/gh/apache/dolphinscheduler/branch/dev/graph/badge.svg)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=apache-dolphinscheduler&metric=alert_status)](https://sonarcloud.io/dashboard?id=apache-dolphinscheduler)
-[![Twitter Follow](https://img.shields.io/twitter/follow/dolphinschedule.svg?style=social&label=Follow)](https://twitter.com/dolphinschedule) <!-- markdown-link-check-disable-line -->
-[![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://s.apache.org/dolphinscheduler-slack)
-[![CN doc](https://img.shields.io/badge/文档-中文版-blue.svg)](README_zh_CN.md)
+## 📋 项目概述
 
-## About
+本项目通过深入阅读DolphinScheduler Master模块源码，详细分析了从定时触发到任务执行的完整派发流程，并生成了相应的流程图和架构图。
 
-Apache DolphinScheduler is the modern data orchestration platform. Agile to create high performance workflow with low-code. It also provided powerful user interface,
-dedicated to solving complex task dependencies in the data pipeline and providing various types of jobs available **out of the box**
+## 📁 文件说明
 
-The key features for DolphinScheduler are as follows:
+### 📄 核心文档
+- **`Master任务派发流程详解.md`** - Master任务派发流程详细文档
+  - 包含11个详细阶段的流程分析
+  - 核心组件架构说明
+  - 关键设计模式解析
+  - 容错与高可用机制
+  - 性能优化策略
+- **`依赖任务判断细节详解.md`** - 依赖任务判断机制深度解析
+  - DAG内部依赖和跨工作流依赖详解
+  - 依赖判断的核心算法实现
+  - 特殊场景处理（自依赖、流式任务等）
+  - 依赖关系计算和后续流程调整
 
-- Easy to deploy, provide four ways to deploy which includes Standalone, Cluster, Docker and Kubernetes.
-- Easy to use, workflow can be created and managed in four ways, including Web UI, [Python SDK](https://dolphinscheduler.apache.org/python/main/index.html) and Open API
-- Highly reliable and high availability, decentralized architecture with multi-master and multi-worker, native supports horizontal scaling.
-- High performance, its performance is N times faster than other orchestration platform and it can support tens of millions of tasks per day
-- Cloud Native, DolphinScheduler supports orchestrating multi-cloud/data center workflow, and supports custom task type
-- Versioning both workflow and workflow instance(including tasks)
-- Various state control of workflow and task, support pause/stop/recover them in any time
-- Multi-tenancy support
-- Others like backfill support(Web UI native), permission control including project and data source
+### 📊 流程图
+- **`Master任务派发流程图.mermaid`** - 完整的任务派发流程图
+  - 从DistributedQuartz定时触发开始
+  - 到Worker节点执行任务结束
+  - 包含所有关键决策点和分支流程
+  - 展示容错处理和并发控制机制
+- **`依赖判断流程图.mermaid`** - 详细的依赖判断流程图
+  - DAG内部依赖判断逻辑
+  - 跨工作流依赖判断过程
+  - 依赖关系计算和结果处理
+  - 后续流程调整机制
 
-## QuickStart
+### 🏗️ 架构图
+- **`Master架构组件图.mermaid`** - Master模块组件架构图
+  - 7个核心层次的组件划分
+  - 组件间的依赖关系
+  - 与外部系统的交互
+  - 内部数据流和控制流
 
-- For quick experience
-  - Want to [start with standalone](https://dolphinscheduler.apache.org/en-us/docs/3.3.0-alpha/guide/installation/standalone)
-  - Want to [start with Docker](https://dolphinscheduler.apache.org/en-us/docs/3.3.0-alpha/guide/start/docker)
-- For Kubernetes
-  - [Start with Kubernetes](https://dolphinscheduler.apache.org/en-us/docs/3.3.0-alpha/guide/installation/kubernetes)
-- For Terraform
-  - [Start with Terraform](deploy/terraform/README.md) 
+## 🔍 核心发现
 
-## User Interface Screenshots
+### 1. 架构设计亮点
+- **事件驱动架构**: 所有组件通过事件进行解耦通信
+- **状态机模式**: 工作流和任务都有明确的状态转换
+- **分层设计**: 清晰的7层架构，职责分离
+- **协调器模式**: 各种协调器负责资源管理和调度
 
-* **Homepage:** Project and workflow overview, including the latest workflow instance and task instance status statistics.
-![home](images/home.png)
+### 2. 任务派发关键流程
+1. **定时触发** → DistributedQuartz插入Command到数据库
+2. **命令扫描** → CommandEngine扫描并处理命令
+3. **工作流创建** → 创建WorkflowExecutionRunnable实例
+4. **事件驱动** → 通过事件总线驱动状态转换
+5. **DAG解析** → 解析工作流DAG并识别就绪任务
+6. **任务分发** → 通过WorkerGroupDispatcher分发到Worker
+7. **状态反馈** → Worker执行结果反馈驱动拓扑推进
 
-* **Workflow Definition:** Create and manage workflow by drag and drop, easy to build and maintain complex workflow, support [bulk of tasks](https://dolphinscheduler.apache.org/en-us/docs/3.3.0-alpha/introduction-to-functions_menu/task_menu) out of box.
-![workflow-definition](images/workflow-definition.png)
+### 3. 高可用机制
+- **Master HA**: 基于ZooKeeper的主备切换
+- **Worker容错**: 任务重新分发机制
+- **数据一致性**: 数据库事务保证状态一致性
+- **负载保护**: 系统过载时暂停命令处理
 
-* **Workflow Tree View:** Abstract tree structure could clearer understanding of the relationship between tasks
-![workflow-tree](images/workflow-tree.png)
+## 🛠️ 技术栈
 
-* **Data source:** Manage support multiple external data sources, provide unified data access capabilities for such as MySQL, PostgreSQL, Hive, Trino, etc.
-![data-source](images/data-source.png)
+### 核心组件
+- **Spring Boot** - 应用框架
+- **Quartz** - 定时调度
+- **ZooKeeper** - 服务注册与发现
+- **MySQL** - 数据持久化
+- **Netty** - RPC通信
 
-* **Monitor:** View the status of the master, worker and database in real time, including server resource usage and load, do quick health check without logging in to the server.
-![monitor](images/monitor.png)
+### 设计模式
+- 事件驱动模式
+- 状态机模式
+- 工厂模式
+- 协调器模式
+- 观察者模式
 
-## Suggestions & Bug Reports
+## 📈 性能优化
 
-Follow [this guide](https://github.com/apache/dolphinscheduler/issues/new/choose) to report your suggestions or bugs.
+### 并发处理
+- 命令处理使用线程池并行执行
+- 事件处理采用多Worker并发模式
+- 任务分发基于Worker组负载均衡
 
-## Contributing
+### 资源管理
+- 工作流实例缓存管理
+- 延迟队列优化任务调度
+- 系统负载监控与保护
 
-The community welcomes everyone to contribute, please refer to this page to find out more: [How to contribute](docs/docs/en/contribute/join/contribute.md),
-find the good first issue in [here](https://github.com/apache/dolphinscheduler/contribute) if you are new to DolphinScheduler.
+## 🔧 使用方法
 
-## Community
+### 查看流程图
+```bash
+# 使用Mermaid渲染流程图
+# 可以使用GitHub、GitLab或Mermaid Live Editor查看
+```
 
-Welcome to join the Apache DolphinScheduler community by:
+### 流程图预览
+1. **Master任务派发流程图**: 展示从定时触发到任务完成的完整流程
+2. **Master架构组件图**: 展示Master模块的内部架构和组件关系
+3. **依赖判断流程图**: 展示DAG内部依赖和跨工作流依赖的判断逻辑
 
-- Join the [DolphinScheduler Slack](https://s.apache.org/dolphinscheduler-slack) to keep in touch with the community
-- Follow the [DolphinScheduler Twitter](https://twitter.com/dolphinschedule) and get the latest news <!-- markdown-link-check-disable-line -->
-- Subscribe DolphinScheduler mail list, [users@dolphinscheduler.apache.org](mailto:users-subscribe@dolphinscheduler.apache.org) for user and [dev@dolphinscheduler.apache.org](mailto:dev-subscribe@dolphinscheduler.apache.org) for developer
+## 🎯 关键洞察
 
-# Landscapes
+### 1. 事件驱动的优势
+- **解耦性**: 组件间通过事件通信，降低耦合度
+- **扩展性**: 易于添加新的事件处理器
+- **可维护性**: 清晰的事件流便于问题定位
 
-<p align="center">
-<br/><br/>
-<img src="./images/cncf-landscape-white-bg.jpg" width="175" alt="cncf-landscape"/>&nbsp;&nbsp;<img src="./images/cncf-white-bg.jpg" width="200" alt="cncf-logo"/>
-<br/><br/>
-DolphinScheduler enriches the <a href="https://landscape.cncf.io/?item=orchestration-management--scheduling-orchestration--dolphinscheduler">CNCF CLOUD NATIVE Landscape.</a >
-</p >
+### 2. 状态机的作用
+- **状态一致性**: 确保工作流和任务状态的一致性
+- **流程控制**: 通过状态转换控制执行流程
+- **异常处理**: 状态机便于处理各种异常情况
+
+### 3. 分层架构的价值
+- **职责分离**: 每层专注于特定功能
+- **可测试性**: 分层便于单元测试
+- **可替换性**: 层间接口化便于组件替换
+
+## 📚 相关资源
+
+- [Apache DolphinScheduler官方文档](https://dolphinscheduler.apache.org/)
+- [源码仓库](https://github.com/apache/dolphinscheduler)
+- [架构设计文档](https://dolphinscheduler.apache.org/zh-cn/docs/latest/architecture/design)
+
+## 🤝 贡献
+
+欢迎提交Issue和Pull Request来完善这个分析文档。
+
+## 📄 许可证
+
+本项目遵循Apache 2.0许可证。
