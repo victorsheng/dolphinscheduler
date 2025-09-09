@@ -82,6 +82,7 @@
         <profile>
             <id>release</id>
             <build>
+                <finalName>dolphinscheduler</finalName>
                 <plugins>
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>
@@ -97,7 +98,7 @@
                                     <descriptors>
                                         <descriptor>src/main/assembly/dolphinscheduler-bin.xml</descriptor>
                                     </descriptors>
-                                    <appendAssemblyId>true</appendAssemblyId>
+                                    <appendAssemblyId>false</appendAssemblyId>
                                 </configuration>
                             </execution>
 
