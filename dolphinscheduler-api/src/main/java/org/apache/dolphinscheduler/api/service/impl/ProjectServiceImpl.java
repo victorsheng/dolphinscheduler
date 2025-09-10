@@ -108,6 +108,14 @@ public class ProjectServiceImpl extends BaseServiceImpl implements ProjectServic
         if (result.getCode() != Status.SUCCESS.getCode()) {
             return result;
         }
+        
+        // 检查用户类型，只有管理员用户(user_type=0)才能创建项目
+        if (!isAdmin(loginUser)) {
+            log.warn("User {} is not admin user, cannot create project.", loginUser.getUserName());
+            putMsg(result, Status.USER_NO_OPERATION_PERM);
+            return result;
+        }
+        
         if (!canOperatorPermissions(loginUser, null, AuthorizationType.PROJECTS, PROJECT_CREATE)) {
             putMsg(result, Status.USER_NO_OPERATION_PERM);
             return result;
