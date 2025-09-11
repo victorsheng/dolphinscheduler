@@ -21,7 +21,6 @@ import org.apache.dolphinscheduler.alert.api.AlertChannel;
 import org.apache.dolphinscheduler.alert.api.AlertData;
 import org.apache.dolphinscheduler.alert.api.AlertInfo;
 import org.apache.dolphinscheduler.alert.api.AlertResult;
-import org.apache.dolphinscheduler.dao.AlertDao;
 
 import java.util.Map;
 
@@ -49,26 +48,11 @@ public final class YqgApiAlertChannel implements AlertChannel {
         }
 
         try {
-            // Get AlertDao from context or create a mock one
-            // In a real implementation, this should be injected properly
-            AlertDao alertDao = getAlertDao();
-
-            return YqgApiAlertSender.send(alertData, paramsMap, alertDao);
-
+            return YqgApiAlertSender.send(alertData, paramsMap);
         } catch (Exception e) {
             log.error("Failed to process custom alert: {}", e.getMessage(), e);
             return new AlertResult(false, "Custom alert processing failed: " + e.getMessage());
         }
     }
 
-    /**
-     * Get AlertDao instance
-     * In a real implementation, this should be properly injected
-     * For now, we'll return null and handle it in the alert processing
-     */
-    private AlertDao getAlertDao() {
-        // TODO: Implement proper dependency injection
-        // This is a placeholder - in real implementation, AlertDao should be injected
-        return null;
-    }
 }

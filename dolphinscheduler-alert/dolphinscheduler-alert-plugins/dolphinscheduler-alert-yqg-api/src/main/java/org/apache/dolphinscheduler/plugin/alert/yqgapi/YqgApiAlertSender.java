@@ -20,7 +20,6 @@ package org.apache.dolphinscheduler.plugin.alert.yqgapi;
 import org.apache.dolphinscheduler.alert.api.AlertData;
 import org.apache.dolphinscheduler.alert.api.AlertResult;
 import org.apache.dolphinscheduler.common.utils.JSONUtils;
-import org.apache.dolphinscheduler.dao.AlertDao;
 
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
@@ -55,10 +54,9 @@ public final class YqgApiAlertSender {
      *
      * @param alertData  alert data
      * @param paramsMap  alert parameters
-     * @param alertDao   alert DAO
      * @return alert result
      */
-    public static AlertResult send(AlertData alertData, Map<String, String> paramsMap, AlertDao alertDao) {
+    public static AlertResult send(AlertData alertData, Map<String, String> paramsMap) {
         AlertResult alertResult = new AlertResult();
 
         try {
@@ -74,7 +72,7 @@ public final class YqgApiAlertSender {
                     alertData.getTitle(), groupId, alertLevel);
 
             // Process alert with custom logic
-            execAlert(alertData, groupId, alertLevel, alertDao, apiUrl);
+            execAlert(alertData, groupId, alertLevel, apiUrl);
 
             alertResult.setSuccess(true);
             alertResult.setMessage("Custom alert processed successfully");
@@ -143,11 +141,10 @@ public final class YqgApiAlertSender {
      * @param alertData  alert data
      * @param groupId    group ID
      * @param alertLevel alert level
-     * @param alertDao   alert DAO
      * @param apiUrl     external API URL
      */
     public static void execAlert(AlertData alertData, String groupId, String alertLevel,
-                                 AlertDao alertDao, String apiUrl) {
+                                 String apiUrl) {
         if (alertData == null || alertData.getContent() == null) {
             log.warn("Alert data or content is null, skipping alert processing");
             return;
@@ -165,7 +162,7 @@ public final class YqgApiAlertSender {
             // } else if (YqgApiAlertConstants.TITLE_TIMEOUT_WARN.equals(title)) {
             // timeoutAlert(alertData, groupId, alertLevel, alertDao, apiUrl);
             // } else {
-            failedAlert(alertData, groupId, alertLevel, alertDao, apiUrl);
+            failedAlert(alertData, groupId, alertLevel, apiUrl);
             // }
         } catch (Exception e) {
             log.error("Error processing alert: title={}, error={}", title, e.getMessage(), e);
@@ -176,7 +173,7 @@ public final class YqgApiAlertSender {
      * Process failed alert
      */
     private static void failedAlert(AlertData alertData, String groupId, String alertLevel,
-                                    AlertDao alertDao, String apiUrl) {
+                                    String apiUrl) {
         try {
             // For now, we'll send the alert directly since the required DAO methods are not available
             // In a real implementation, you would need to implement these methods in AlertDao

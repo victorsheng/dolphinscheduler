@@ -98,8 +98,7 @@ class YqgApiAlertChannelTest {
         AlertResult result = customAlertChannel.process(alertInfo);
 
         assertNotNull(result);
-        // Note: This test will fail because AlertDao is not properly injected
-        // In a real test environment, you would need to mock the AlertDao
-        assertFalse(result.isSuccess());
+        assertTrue(result.isSuccess());
+        assertTrue(result.getMessage().contains("Custom alert processed successfully"));
     }
 }
