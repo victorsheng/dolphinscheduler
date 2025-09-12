@@ -128,8 +128,8 @@ public final class YqgApiAlertSender {
         param.put("content", info);
 
         try {
-            doPostJson(apiUrl, JSONUtils.toJsonString(param));
-            log.info("Alert SMS sent successfully: groupId={}, level={}, title={}", groupId, level, title);
+            String result = doPostJson(apiUrl, JSONUtils.toJsonString(param));
+            log.info("Alert SMS sent successfully: groupId={}, level={}, title={} ,result={}", groupId, level, title,result);
         } catch (Exception e) {
             log.error("Failed to send alert SMS: {}", e.getMessage(), e);
         }
@@ -208,6 +208,7 @@ public final class YqgApiAlertSender {
      * @throws Exception if request fails
      */
     public static String doPostJson(String url, String json, int timeout) throws Exception {
+        log.info("Sending HTTP POST request to {}: {}", url, json);
         CloseableHttpClient httpClient = null;
         CloseableHttpResponse response = null;
 

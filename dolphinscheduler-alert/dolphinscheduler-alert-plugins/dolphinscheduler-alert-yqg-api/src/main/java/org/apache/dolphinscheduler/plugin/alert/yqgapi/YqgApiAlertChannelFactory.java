@@ -31,7 +31,7 @@ public final class YqgApiAlertChannelFactory implements AlertChannelFactory {
 
     @Override
     public String name() {
-        return "custom";
+        return "yqg-alert-api";
     }
 
     @Override
