@@ -17,6 +17,7 @@
 
 package org.apache.dolphinscheduler.plugin.alert.yqgapi;
 
+import com.google.auto.service.AutoService;
 import org.apache.dolphinscheduler.alert.api.AlertChannel;
 import org.apache.dolphinscheduler.alert.api.AlertChannelFactory;
 import org.apache.dolphinscheduler.spi.params.base.PluginParams;
@@ -25,9 +26,7 @@ import org.apache.dolphinscheduler.spi.params.input.InputParam;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Custom alert channel factory
- */
+@AutoService(AlertChannelFactory.class)
 public final class YqgApiAlertChannelFactory implements AlertChannelFactory {
 
     @Override
